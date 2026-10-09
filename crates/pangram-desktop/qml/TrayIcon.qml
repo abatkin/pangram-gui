@@ -26,6 +26,10 @@ Item {
         onMessageClicked: window.showFromTray()
 
         menu: Platform.Menu {
+            // With QApplication this is a widget QMenu, and `visible` (default true) pops it up
+            // at the window's corner when the tray icon appears. The tray only exports its items.
+            visible: false
+
             Platform.MenuItem {
                 text: window.visible ? qsTr("Hide Pangram") : qsTr("Show Pangram")
                 onTriggered: window.visible ? window.hideToTray() : window.showFromTray()
