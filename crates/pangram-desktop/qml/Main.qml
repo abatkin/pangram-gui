@@ -184,6 +184,7 @@ ApplicationWindow {
     Backend {
         id: backend
         onNotice: (level, message) => window.showNotice(level, message)
+        onActivationRequested: window.showFromTray()
         onCurrentCleared: {
             if (window.mode === "scan")
                 window.mode = "draft"

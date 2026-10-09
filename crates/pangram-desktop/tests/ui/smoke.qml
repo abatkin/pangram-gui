@@ -15,11 +15,13 @@ Item {
     property int historyBefore: 0
     property var notices: []
     property var finishedScans: []
+    property int activations: 0
 
     Connections {
         target: backend
         function onNotice(level, message) { smoke.notices.push(message) }
         function onScanFinished(state, ai, assisted, human) { smoke.finishedScans.push({ state, ai, human }) }
+        function onActivationRequested() { smoke.activations++ }
     }
     readonly property string outDir: {
         const a = Qt.application.arguments.find(x => x.startsWith("--smoke-out="))
@@ -307,6 +309,18 @@ Item {
             case 58:
                 if (!backend.minimizeToTray) {
                     smoke.check(!window.trayActive, "tray setting turns off")
+                    smoke.step = 59
+                }
+                break
+            // Single instance: ui-smoke.sh launches a second copy once this is logged.
+            case 59:
+                window.hideToTray()
+                smoke.log("waiting for a second launch")
+                smoke.step = 590
+                break
+            case 590:
+                if (window.visible) {
+                    smoke.check(smoke.activations === 1, "second launch shows the running window")
                     smoke.step = 6
                 }
                 break

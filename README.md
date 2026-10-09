@@ -104,6 +104,9 @@ minimizing, so on Wayland the minimize button works as usual. The notification f
 scan shows only the percentages, never the title or text, since notification daemons keep a
 history.
 
+Only one copy runs at a time. Starting Pangram again, from the application menu for example,
+brings up the running window (including from the tray) instead of opening a second copy.
+
 ### Costs
 
 The API doesn't report charges, so the app estimates them from Pangram's published pricing
@@ -120,6 +123,7 @@ records removes them). Your Pangram dashboard is the authority on what you were 
 | --- | --- |
 | Settings | `$XDG_CONFIG_HOME/pangram-desktop/settings.json` (`~/.config/…`) |
 | History and usage | `$XDG_DATA_HOME/pangram-desktop/history.sqlite3` (`~/.local/share/…`), a SQLite database (`sqlite3` can open it). Settings shows the path. |
+| Single-instance lock and socket | `$XDG_RUNTIME_DIR/pangram-desktop/` (per history location; holds no data) |
 | API key | Secret Service item `application=net.batkin.pangram-desktop, kind=pangram-api-key` |
 
 - Scans are sent with `public_dashboard_link: false`.

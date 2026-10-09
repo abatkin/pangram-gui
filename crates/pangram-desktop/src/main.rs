@@ -4,6 +4,8 @@ use std::path::{Path, PathBuf};
 
 use cxx_qt_lib::{QGuiApplication, QQmlApplicationEngine, QQuickStyle, QString, QUrl};
 use cxx_qt_lib_extras::QApplication;
+use pangram_core::instance::{self, Acquired};
+use pangram_core::settings::Paths;
 
 const APP_ID: &str = "net.batkin.pangram-desktop";
 const KDE_STYLE: &str = "org.kde.desktop";
@@ -42,7 +44,31 @@ fn choose_style() {
     QQuickStyle::set_fallback_style(&QString::from("Fusion"));
 }
 
+/// Shows the running instance's window and exits if there is one; otherwise returns the lock
+/// that makes this process the only instance.
+fn single_instance() -> Option<instance::Primary> {
+    let base = instance::location(&Paths::from_env().data_dir);
+    let token = std::env::var("XDG_ACTIVATION_TOKEN").ok();
+    match instance::acquire(&base, token.as_deref()) {
+        Ok(Acquired::Primary(primary)) => Some(primary),
+        Ok(Acquired::Forwarded) => std::process::exit(0),
+        Ok(Acquired::NoResponse(e)) => {
+            eprintln!("Pangram is already running but didn't respond ({e}).");
+            std::process::exit(1)
+        }
+        Err(e) => {
+            eprintln!("Couldn't check for a running Pangram ({e}); starting anyway.");
+            None
+        }
+    }
+}
+
 fn main() {
+    // Before Qt starts, so a second launch exits quickly.
+    if let Some(primary) = single_instance() {
+        backend::set_instance(primary);
+    }
+
     // QApplication (not QGuiApplication) is required by the QStyle-based KDE desktop style.
     let mut app = QApplication::new();
     if let Some(mut app) = app.as_mut() {
