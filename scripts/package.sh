@@ -19,6 +19,7 @@ install -Dm755 target/release/pangram-desktop "$stage/bin/pangram-desktop"
 install -Dm644 "data/$app_id.desktop" "$stage/share/applications/$app_id.desktop"
 install -Dm644 "data/$app_id.svg" "$stage/share/icons/hicolor/scalable/apps/$app_id.svg"
 install -Dm644 README.md "$stage/share/doc/pangram-desktop/README.md"
+install -Dm644 -t "$stage/share/licenses/pangram-desktop" LICENSE-APACHE LICENSE-MIT
 
 tar -C dist --owner=0 --group=0 --sort=name -czf "dist/$name.tar.gz" "$name"
 rm -rf "$stage"

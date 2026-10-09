@@ -54,7 +54,7 @@ tar -xzf pangram-desktop-*.tar.gz -C ~/.local --strip-components=1
 ```
 
 To remove it, delete `~/.local/bin/pangram-desktop` and the `net.batkin.pangram-desktop` desktop
-entry and icon under `~/.local/share`.
+entry, icon, docs and license under `~/.local/share`.
 
 ## Build, run, install
 
@@ -201,3 +201,16 @@ cargo run -p pangram-core --example live_probe -- scan FILE [MODEL]     # ONE re
 - **Measurements** (release build, Plasma Wayland): 15 MB binary. About 190 MB RSS / 85 MB PSS at
   idle with the KDE style; most of that is shared Qt/KDE libraries. A 100k-character result with
   943 sections renders its highlights in about 8 ms.
+
+## License
+
+Licensed under either of
+
+- [Apache License, Version 2.0](LICENSE-APACHE)
+- [MIT license](LICENSE-MIT)
+
+at your option.
+
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in
+this project by you, as defined in the Apache-2.0 license, shall be dual licensed as above,
+without any additional terms or conditions.
