@@ -14,10 +14,12 @@ Item {
     property string failedId: ""
     property int historyBefore: 0
     property var notices: []
+    property var finishedScans: []
 
     Connections {
         target: backend
         function onNotice(level, message) { smoke.notices.push(message) }
+        function onScanFinished(state, ai, assisted, human) { smoke.finishedScans.push({ state, ai, human }) }
     }
     readonly property string outDir: {
         const a = Qt.application.arguments.find(x => x.startsWith("--smoke-out="))
@@ -206,6 +208,8 @@ Item {
                     smoke.check(smoke.notices.some(n => n.indexOf("mock Pangram API") >= 0), "server notice shown")
                     smoke.check(window.title === "Pangram", "window title stays fixed")
                     smoke.check(r.sections.length >= 4, "sections returned: " + r.sections.length)
+                    smoke.check(smoke.finishedScans.length === 1 && smoke.finishedScans[0].state === "completed"
+                                && smoke.finishedScans[0].ai === r.fractionAi, "completion signalled with the result")
                     smoke.check(plain(ed.getText(0, ed.length)) === r.displayText, "rendered text is literal")
                     let mapped = true, selected = true
                     for (let i = 0; i < r.sections.length; i++) {
@@ -342,6 +346,8 @@ Item {
                 if (scan && scan.state === "failed") {
                     smoke.failedId = scan.id
                     smoke.check(scan.error.indexOf("mock failure") >= 0, "failure message shown")
+                    const last = smoke.finishedScans[smoke.finishedScans.length - 1]
+                    smoke.check(last.state === "failed" && last.ai === -1, "failure signalled")
                     smoke.check(documentPane.scanToolbar.height < 120, "markup in a title is shown as text ("
                                 + documentPane.scanToolbar.height + " px toolbar)")
                     smoke.check(smoke.fitsWindow(documentPane.rescanButton), "Edit and rescan stays visible at the minimum width")

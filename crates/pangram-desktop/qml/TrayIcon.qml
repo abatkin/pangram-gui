@@ -7,8 +7,6 @@ Item {
     id: root
 
     readonly property alias available: tray.available
-    // ID of the displayed scan while it runs, to notice when it finishes.
-    property string runningId: ""
 
     Platform.SystemTrayIcon {
         id: tray
@@ -53,22 +51,17 @@ Item {
     // document text or title, since notification daemons keep a history.
     Connections {
         target: backend
-        function onCurrentRevisionChanged() {
-            const scan = window.currentScan
-            const running = !!scan && (scan.state === "submitting" || scan.state === "polling")
-            const finished = !!scan && !running && scan.id === root.runningId
-            root.runningId = running ? scan.id : ""
-            if (!finished || window.visible || !tray.visible || !tray.supportsMessages)
+        function onScanFinished(state, ai, assisted, human) {
+            if (window.visible || !tray.visible || !tray.supportsMessages)
                 return
-            if (scan.state === "completed" && scan.result)
+            const pct = f => window.percent(f < 0 ? null : f)
+            if (state === "completed")
                 tray.showMessage(qsTr("Scan complete"),
                                  qsTr("AI-generated %1, AI-assisted %2, human-written %3")
-                                     .arg(window.percent(scan.result.fractionAi))
-                                     .arg(window.percent(scan.result.fractionAiAssisted))
-                                     .arg(window.percent(scan.result.fractionHuman)))
+                                     .arg(pct(ai)).arg(pct(assisted)).arg(pct(human)))
             else
                 tray.showMessage(qsTr("Scan didn't complete"),
-                                 qsTr("%1. Open Pangram for details.").arg(window.stateText(scan.state)),
+                                 qsTr("%1. Open Pangram for details.").arg(window.stateText(state)),
                                  Platform.SystemTrayIcon.Warning)
         }
     }

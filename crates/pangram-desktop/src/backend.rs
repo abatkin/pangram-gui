@@ -141,6 +141,17 @@ pub mod qobject {
         /// The displayed scan was deleted.
         #[qsignal]
         fn current_cleared(self: Pin<&mut Backend>);
+
+        /// A scan, displayed or not, just ended as "completed", "failed" or "submissionUnknown".
+        /// The fractions are -1 when unknown.
+        #[qsignal]
+        fn scan_finished(
+            self: Pin<&mut Backend>,
+            state: QString,
+            fraction_ai: f64,
+            fraction_ai_assisted: f64,
+            fraction_human: f64,
+        );
     }
 
     impl cxx_qt::Threading for Backend {}
@@ -377,6 +388,21 @@ impl qobject::Backend {
     fn apply(mut self: Pin<&mut Self>, update: UiUpdate) {
         match update {
             UiUpdate::Scan(scan) => {
+                // The service sends these states only when a scan reaches them; reopening a
+                // scan arrives as `Opened`.
+                if matches!(
+                    scan.record.state,
+                    ScanState::Completed | ScanState::Failed | ScanState::SubmissionUnknown
+                ) {
+                    let fraction = |f: Option<f64>| f.unwrap_or(-1.0);
+                    let a = scan.analysis.as_deref();
+                    self.as_mut().scan_finished(
+                        QString::from(scan.record.state.as_str()),
+                        fraction(a.and_then(|a| a.fraction_ai)),
+                        fraction(a.and_then(|a| a.fraction_ai_assisted)),
+                        fraction(a.and_then(|a| a.fraction_human)),
+                    );
+                }
                 if self.current_id().to_string() == scan.record.id {
                     self.show(scan);
                 }
