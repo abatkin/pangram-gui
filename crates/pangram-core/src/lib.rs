@@ -4,6 +4,7 @@ pub mod analysis;
 pub mod api;
 pub mod cost;
 pub mod credentials;
+pub mod instance;
 pub mod service;
 pub mod settings;
 pub mod storage;

@@ -17,6 +17,8 @@ pub struct Settings {
     pub remember_key: bool,
     /// Price of one Pangram credit, for cost estimates.
     pub usd_per_credit: f64,
+    /// Show a system tray icon; closing or minimizing the window hides it there.
+    pub minimize_to_tray: bool,
 }
 
 impl Default for Settings {
@@ -26,6 +28,7 @@ impl Default for Settings {
             model: None,
             remember_key: true,
             usd_per_credit: crate::cost::DEFAULT_USD_PER_CREDIT,
+            minimize_to_tray: false,
         }
     }
 }
@@ -99,6 +102,7 @@ mod tests {
             model: Some("pangram-4".into()),
             remember_key: false,
             usd_per_credit: 0.04,
+            minimize_to_tray: true,
         };
         s.save(&path).unwrap();
         assert_eq!(Settings::load(&path), s);
@@ -106,5 +110,6 @@ mod tests {
         let partial = Settings::load(&path);
         assert_eq!(partial.model.as_deref(), Some("x"));
         assert!(partial.save_history);
+        assert!(!partial.minimize_to_tray);
     }
 }

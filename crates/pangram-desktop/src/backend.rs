@@ -30,6 +30,7 @@ pub mod qobject {
         #[qproperty(bool, history_disk_available)]
         #[qproperty(bool, save_history)]
         #[qproperty(bool, remember_key)]
+        #[qproperty(bool, minimize_to_tray)]
         #[qproperty(bool, busy)]
         #[qproperty(QString, current_id)]
         #[qproperty(QString, current_json)]
@@ -90,6 +91,9 @@ pub mod qobject {
         fn set_history_enabled(self: Pin<&mut Backend>, enabled: bool);
 
         #[qinvokable]
+        fn set_tray_enabled(self: Pin<&mut Backend>, enabled: bool);
+
+        #[qinvokable]
         fn search_history(self: Pin<&mut Backend>, query: &QString);
 
         /// Highlighted, escaped rich text for the current result.
@@ -137,13 +141,28 @@ pub mod qobject {
         /// The displayed scan was deleted.
         #[qsignal]
         fn current_cleared(self: Pin<&mut Backend>);
+
+        /// Another launch asked this instance to show its window.
+        #[qsignal]
+        fn activation_requested(self: Pin<&mut Backend>);
+
+        /// A scan, displayed or not, just ended as "completed", "failed" or "submissionUnknown".
+        /// The fractions are -1 when unknown.
+        #[qsignal]
+        fn scan_finished(
+            self: Pin<&mut Backend>,
+            state: QString,
+            fraction_ai: f64,
+            fraction_ai_assisted: f64,
+            fraction_human: f64,
+        );
     }
 
     impl cxx_qt::Threading for Backend {}
 }
 
 use std::pin::Pin;
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::{QString, QStringList};
@@ -151,6 +170,7 @@ use pangram_core::analysis::{Analysis, HighlightPalette, describe_normalization}
 use pangram_core::api::{ClientOptions, DetectionResult, task_request_body};
 use pangram_core::cost;
 use pangram_core::credentials::CredentialStore;
+use pangram_core::instance;
 use pangram_core::service::{Config, Event, NoticeLevel, PollPolicy, Service};
 use pangram_core::settings::Paths;
 use pangram_core::storage::{ScanRecord, ScanState};
@@ -169,6 +189,13 @@ pub fn runtime() -> &'static tokio::runtime::Runtime {
     })
 }
 
+static INSTANCE: Mutex<Option<instance::Primary>> = Mutex::new(None);
+
+/// Keeps the single-instance lock until the backend starts serving activation requests.
+pub fn set_instance(primary: instance::Primary) {
+    *INSTANCE.lock().unwrap_or_else(|e| e.into_inner()) = Some(primary);
+}
+
 #[derive(Default)]
 pub struct BackendRust {
     ready: bool,
@@ -184,6 +211,7 @@ pub struct BackendRust {
     history_disk_available: bool,
     save_history: bool,
     remember_key: bool,
+    minimize_to_tray: bool,
     busy: bool,
     current_id: QString,
     current_json: QString,
@@ -342,12 +370,29 @@ impl qobject::Backend {
                 _ => CredentialStore::secret_service(),
             },
         };
+        if let Some(primary) = INSTANCE.lock().unwrap_or_else(|e| e.into_inner()).take() {
+            let gui = self.qt_thread();
+            primary.listen(move |token| {
+                let _ = gui.queue(move |backend| backend.activate(token));
+            });
+        }
         let service = Service::start(config, runtime().handle().clone(), move |event| {
             let update = UiUpdate::from_event(event);
             // Fails only when the QObject is gone (application shutting down).
             let _ = qt_thread.queue(move |backend| backend.apply(update));
         });
         self.as_mut().rust_mut().service = Some(service);
+    }
+
+    fn activate(self: Pin<&mut Self>, token: Option<String>) {
+        if let Some(token) = token {
+            // Qt's Wayland plugin activates the window with this token on the next
+            // requestActivate() and then unsets it; Qt's tray code sets it the same way.
+            // SAFETY: Qt reads it on this (GUI) thread. Rust threads (HTTP and D-Bus clients)
+            // read the environment under the same std lock as set_var.
+            unsafe { std::env::set_var("XDG_ACTIVATION_TOKEN", token) };
+        }
+        self.activation_requested();
     }
 
     fn show(mut self: Pin<&mut Self>, scan: PreparedScan) {
@@ -372,6 +417,21 @@ impl qobject::Backend {
     fn apply(mut self: Pin<&mut Self>, update: UiUpdate) {
         match update {
             UiUpdate::Scan(scan) => {
+                // The service sends these states only when a scan reaches them; reopening a
+                // scan arrives as `Opened`.
+                if matches!(
+                    scan.record.state,
+                    ScanState::Completed | ScanState::Failed | ScanState::SubmissionUnknown
+                ) {
+                    let fraction = |f: Option<f64>| f.unwrap_or(-1.0);
+                    let a = scan.analysis.as_deref();
+                    self.as_mut().scan_finished(
+                        QString::from(scan.record.state.as_str()),
+                        fraction(a.and_then(|a| a.fraction_ai)),
+                        fraction(a.and_then(|a| a.fraction_ai_assisted)),
+                        fraction(a.and_then(|a| a.fraction_human)),
+                    );
+                }
                 if self.current_id().to_string() == scan.record.id {
                     self.show(scan);
                 }
@@ -399,6 +459,7 @@ impl qobject::Backend {
             Event::Settings(s) => {
                 self.as_mut().set_save_history(s.save_history);
                 self.as_mut().set_usd_per_credit(s.usd_per_credit);
+                self.as_mut().set_minimize_to_tray(s.minimize_to_tray);
                 self.set_remember_key(s.remember_key);
             }
             Event::Credentials(c) => {
@@ -537,6 +598,12 @@ impl qobject::Backend {
     pub fn set_history_enabled(self: Pin<&mut Self>, enabled: bool) {
         if let Some(s) = self.service() {
             s.set_save_history(enabled);
+        }
+    }
+
+    pub fn set_tray_enabled(self: Pin<&mut Self>, enabled: bool) {
+        if let Some(s) = self.service() {
+            s.set_minimize_to_tray(enabled);
         }
     }
 

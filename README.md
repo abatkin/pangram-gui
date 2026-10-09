@@ -19,6 +19,8 @@ Features:
   **Usage and cost** window that totals estimated spend by day, week or month.
 - Local scan history: search, reopen without new API calls, “Edit and rescan”, delete one or all.
 - API key in the system keyring (Secret Service), or for the session only.
+- Optional system tray icon: closing or minimizing hides the window to the tray, and a
+  notification reports scans that finish while it's hidden.
 - Polling resumes after a restart. A submission whose outcome is uncertain is never resent
   automatically.
 
@@ -39,6 +41,8 @@ Runtime:
 - Qt 6 base, declarative (Quick/QML/Controls) and Wayland libraries, plus OpenSSL. These are
   installed with the packages above.
 - Optional: `kf6-qqc2-desktop-style` for native KDE styling. Without it the app uses Fusion.
+- Optional: a StatusNotifierItem tray host for the tray icon. Plasma has one; GNOME needs the
+  AppIndicator extension.
 - A Secret Service provider to remember the API key: KWallet's `ksecretd` on Plasma, or GNOME
   Keyring. Without one, the key is kept for the session only. It is never written to disk.
 
@@ -79,6 +83,7 @@ the desktop entry. Run with `QT_QPA_PLATFORM=xcb` to force X11.
 | Ctrl+F | Find in the document (Enter / Shift+Enter: next / previous, Esc: close) |
 | F9 | Show or hide the history sidebar |
 | Ctrl+, | Settings |
+| Ctrl+Q | Quit (also when the window hides to the tray) |
 | Tab | Move between panes; the editors don't insert tab characters |
 | Up / Down in Sections | Select a section and highlight it in the text |
 
@@ -91,6 +96,16 @@ don't match the returned text, highlights are withheld and each section's text i
 results pane instead.
 
 When the window is narrower than about 1050 px, results move below the document.
+
+With **Settings → Window → Minimize to the system tray** on, closing the window hides it to the tray
+and off the taskbar while scans keep running. Click the tray icon to bring it back, or quit from
+its menu. Minimizing also hides it under X11, but a Wayland compositor doesn't tell the app about
+minimizing, so on Wayland the minimize button works as usual. The notification for a finished
+scan shows only the percentages, never the title or text, since notification daemons keep a
+history.
+
+Only one copy runs at a time. Starting Pangram again, from the application menu for example,
+brings up the running window (including from the tray) instead of opening a second copy.
 
 ### Costs
 
@@ -108,6 +123,7 @@ records removes them). Your Pangram dashboard is the authority on what you were 
 | --- | --- |
 | Settings | `$XDG_CONFIG_HOME/pangram-desktop/settings.json` (`~/.config/…`) |
 | History and usage | `$XDG_DATA_HOME/pangram-desktop/history.sqlite3` (`~/.local/share/…`), a SQLite database (`sqlite3` can open it). Settings shows the path. |
+| Single-instance lock and socket | `$XDG_RUNTIME_DIR/pangram-desktop/` (per history location; holds no data) |
 | API key | Secret Service item `application=net.batkin.pangram-desktop, kind=pangram-api-key` |
 
 - Scans are sent with `public_dashboard_link: false`.
