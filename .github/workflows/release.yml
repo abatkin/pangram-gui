@@ -1,0 +1,95 @@
+# Manually run from the Actions tab on main. Releases the workspace version in Cargo.toml as tag
+# v<version>; bump that version (and commit) first. Fails if the tag already exists.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      draft:
+        description: Create the release as a draft
+        type: boolean
+        default: false
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Require main
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::Releases can only be made from main (this run is on $GITHUB_REF)."
+          exit 1
+      - uses: actions/checkout@v7
+      - id: version
+        name: Read version and check the tag is unused
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(sed -n '/^\[workspace\.package\]/,/^\[/ s/^version = "\(.*\)"/\1/p' Cargo.toml)"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Could not read [workspace.package] version from Cargo.toml (got '$version')."
+            exit 1
+          fi
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$version" >/dev/null 2>&1; then
+            echo "::error::Tag v$version already exists. Bump the version in Cargo.toml first."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Releasing v$version from $GITHUB_SHA"
+
+  ci:
+    needs: prepare
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    needs: [prepare, ci]
+    runs-on: ubuntu-latest
+    container: registry.fedoraproject.org/fedora:44
+    steps:
+      - run: dnf install -y --setopt=install_weak_deps=False git
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          cache-key: release
+      - name: Build and package
+        run: scripts/package.sh
+      - name: Check package version
+        run: test -f "dist/pangram-desktop-${{ needs.prepare.outputs.version }}-x86_64-linux.tar.gz"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist
+      - name: Create tag and GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          DRAFT: ${{ inputs.draft }}
+        run: |
+          notes="Linux x86_64 build, made on Fedora 44 against Qt 6.11. It needs Qt 6.11 or newer and OpenSSL 3 at runtime; see the README for packages and install steps."
+          flags=()
+          [[ "$DRAFT" == "true" ]] && flags+=(--draft)
+          [[ "$VERSION" == *-* ]] && flags+=(--prerelease)
+          gh release create "v$VERSION" dist/* \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "v$VERSION" --notes "$notes" --generate-notes "${flags[@]}"

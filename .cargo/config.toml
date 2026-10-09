@@ -1,0 +1,4 @@
+# qt-build-utils adds -fuse-ld=gold when the system ld is GNU bfd (gold is deprecated).
+# Rust's bundled rust-lld is the default linker for this target; say so explicitly.
+[target.x86_64-unknown-linux-gnu]
+rustflags = ["-C", "link-arg=-fuse-ld=lld"]

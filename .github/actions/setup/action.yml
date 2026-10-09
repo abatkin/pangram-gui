@@ -1,0 +1,29 @@
+name: Set up build environment
+description: >
+  Installs the Fedora build dependencies listed in the README and the Rust toolchain pinned in
+  rust-toolchain.toml. Run inside a fedora:44 container, after actions/checkout.
+inputs:
+  cache-key:
+    description: Extra key for the Cargo cache, so debug and release builds don't evict each other.
+    default: debug
+runs:
+  using: composite
+  steps:
+    - name: Install system packages
+      shell: bash
+      run: |
+        dnf install -y --setopt=install_weak_deps=False \
+          gcc-c++ pkgconf-pkg-config openssl-devel \
+          qt6-qtbase-devel qt6-qtdeclarative-devel qt6-qtwayland \
+          rustup findutils google-noto-sans-fonts
+        rpm -q qt6-qtbase qt6-qtdeclarative
+    - name: Install Rust toolchain
+      shell: bash
+      run: |
+        rustup-init -y --default-toolchain none --profile minimal
+        echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+        "$HOME/.cargo/bin/rustup" toolchain install
+        "$HOME/.cargo/bin/rustc" --version
+    - uses: Swatinem/rust-cache@v2
+      with:
+        key: ${{ inputs.cache-key }}

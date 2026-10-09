@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Pangram
+GenericName=AI Text Detector
+Comment=Check text for AI-generated writing with Pangram
+Exec=pangram-desktop
+Icon=net.batkin.pangram-desktop
+Terminal=false
+Categories=Utility;TextTools;
+Keywords=AI;detection;detector;text;writing;Pangram;
+StartupNotify=true
+StartupWMClass=pangram-desktop

@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    # Fedora 44 ships the Qt 6.11 the app is pinned against; Ubuntu runners don't.
+    container: registry.fedoraproject.org/fedora:44
+    steps:
+      # git must exist before checkout, or checkout falls back to a tarball without history.
+      - run: dnf install -y --setopt=install_weak_deps=False git
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+
+      - name: Format
+        run: cargo fmt --all --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Tests
+        run: cargo test --workspace --locked
+      # Drives the real window against the mock API, headless. Clipboard checks pass offscreen.
+      - name: UI smoke test
+        run: scripts/ui-smoke.sh ui-screenshots
+        env:
+          QT_QPA_PLATFORM: offscreen
+      - name: Upload UI screenshots
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ui-screenshots
+          path: ui-screenshots
+          if-no-files-found: ignore
