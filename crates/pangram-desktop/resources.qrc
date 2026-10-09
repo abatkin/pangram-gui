@@ -1,0 +1,7 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+  <!-- Tray icon fallback when the icon theme doesn't have the installed app icon. -->
+  <qresource prefix="/net/batkin/pangram">
+    <file alias="app-icon.svg">../../data/net.batkin.pangram-desktop.svg</file>
+  </qresource>
+</RCC>

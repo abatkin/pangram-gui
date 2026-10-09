@@ -190,6 +190,32 @@ Dialog {
 
                 GroupBox {
                     Layout.fillWidth: true
+                    title: qsTr("Window")
+
+                    ColumnLayout {
+                        width: parent.width
+                        spacing: 8
+                        CheckBox {
+                            id: trayBox
+                            text: qsTr("Minimize to the system tray")
+                            enabled: trayIcon.available || checked
+                            checked: backend.minimizeToTray
+                            onToggled: backend.setTrayEnabled(checked)
+                        }
+                        Label {
+                            textFormat: Text.PlainText
+                            Layout.fillWidth: true
+                            wrapMode: Text.Wrap
+                            opacity: 0.75
+                            text: trayIcon.available
+                                  ? qsTr("Closing or minimizing the window hides it in the tray and off the taskbar; scans keep running. Click the tray icon to bring it back. Quit from the tray menu or with Ctrl+Q.")
+                                  : qsTr("No system tray is available on this desktop.")
+                        }
+                    }
+                }
+
+                GroupBox {
+                    Layout.fillWidth: true
                     title: qsTr("Costs")
 
                     ColumnLayout {

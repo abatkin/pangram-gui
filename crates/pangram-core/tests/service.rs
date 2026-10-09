@@ -611,10 +611,15 @@ async fn rapid_settings_changes_persist_the_latest_value() {
     for i in 1..=40 {
         h.service.set_usd_per_credit(f64::from(i) / 100.0);
         h.service.set_save_history(i % 2 == 0);
+        h.service.set_minimize_to_tray(i % 2 == 1);
     }
     // The last write emits the final settings.
     h.wait_for(|e| match e {
-        Event::Settings(s) if (s.usd_per_credit - 0.40).abs() < 1e-9 && s.save_history => Some(()),
+        Event::Settings(s)
+            if (s.usd_per_credit - 0.40).abs() < 1e-9 && s.save_history && !s.minimize_to_tray =>
+        {
+            Some(())
+        }
         Event::Notice { message, .. } if message.contains("Couldn't save settings") => {
             panic!("{message}")
         }
@@ -625,6 +630,7 @@ async fn rapid_settings_changes_persist_the_latest_value() {
     let saved = Settings::load(&h.paths.settings_file());
     assert!((saved.usd_per_credit - 0.40).abs() < 1e-9, "{saved:?}");
     assert!(saved.save_history);
+    assert!(!saved.minimize_to_tray);
 }
 
 #[tokio::test(flavor = "multi_thread")]

@@ -1000,6 +1000,12 @@ impl Service {
         self.spawn(async move { s.save_settings().await });
     }
 
+    pub fn set_minimize_to_tray(&self, enabled: bool) {
+        self.state().settings.minimize_to_tray = enabled;
+        let s = self.clone();
+        self.spawn(async move { s.save_settings().await });
+    }
+
     /// Requests usage grouped by `"day"`, `"week"` or `"month"`; later changes re-emit it.
     pub fn usage_summary(&self, period: &str) {
         let Some(period) = UsagePeriod::parse(period) else {

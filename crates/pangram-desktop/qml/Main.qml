@@ -21,6 +21,13 @@ ApplicationWindow {
     property string draftSourceId: ""
     property int selectedSection: -1
 
+    // Closing or minimizing hides the window to the tray (off the taskbar) instead of quitting.
+    readonly property bool trayActive: backend.minimizeToTray && trayIcon.available
+    // Set by quit(), so the close it causes isn't turned into hiding.
+    property bool quitting: false
+    // How to show the window again when it comes back from the tray.
+    property int restoreVisibility: Window.Windowed
+
     readonly property var currentScan: backend.currentJson.length > 0 ? JSON.parse(backend.currentJson) : null
     readonly property var currentResult: currentScan && currentScan.result ? currentScan.result : null
     readonly property var history: JSON.parse(backend.historyJson.length > 0 ? backend.historyJson : "[]")
@@ -131,6 +138,49 @@ ApplicationWindow {
         documentPane.focusEditor()
     }
 
+    function hideToTray() {
+        usageWindow.close()
+        window.hide()
+    }
+
+    function showFromTray() {
+        if (restoreVisibility === Window.Maximized)
+            window.showMaximized()
+        else if (restoreVisibility === Window.FullScreen)
+            window.showFullScreen()
+        else
+            window.showNormal()
+        window.raise()
+        window.requestActivate()
+    }
+
+    function toggleFromTray() {
+        if (window.visible && window.active)
+            hideToTray()
+        else
+            showFromTray()
+    }
+
+    function quit() {
+        quitting = true
+        Qt.quit()
+    }
+
+    onClosing: close => {
+        if (trayActive && !quitting) {
+            close.accepted = false
+            hideToTray()
+        }
+    }
+
+    // Wayland doesn't tell clients about minimizing, so there only closing hides to the tray.
+    onVisibilityChanged: v => {
+        if (v === Window.Windowed || v === Window.Maximized || v === Window.FullScreen)
+            restoreVisibility = v
+        else if (v === Window.Minimized && trayActive)
+            Qt.callLater(hideToTray)
+    }
+
     Backend {
         id: backend
         onNotice: (level, message) => window.showNotice(level, message)
@@ -169,6 +219,11 @@ ApplicationWindow {
         sequences: ["F9"]
         context: Qt.ApplicationShortcut
         onActivated: window.historyVisible = !window.historyVisible
+    }
+    Shortcut {
+        sequences: [StandardKey.Quit]
+        context: Qt.ApplicationShortcut
+        onActivated: window.quit()
     }
     Shortcut {
         sequences: [StandardKey.Preferences, "Ctrl+,"]
@@ -300,6 +355,10 @@ ApplicationWindow {
         anchors.centerIn: Overlay.overlay
         onDeleteAllRequested: deleteAllDialog.open()
         onUsageRequested: usageWindow.openWindow()
+    }
+
+    TrayIcon {
+        id: trayIcon
     }
 
     UsageWindow {

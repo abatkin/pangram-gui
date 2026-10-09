@@ -30,6 +30,7 @@ pub mod qobject {
         #[qproperty(bool, history_disk_available)]
         #[qproperty(bool, save_history)]
         #[qproperty(bool, remember_key)]
+        #[qproperty(bool, minimize_to_tray)]
         #[qproperty(bool, busy)]
         #[qproperty(QString, current_id)]
         #[qproperty(QString, current_json)]
@@ -88,6 +89,9 @@ pub mod qobject {
 
         #[qinvokable]
         fn set_history_enabled(self: Pin<&mut Backend>, enabled: bool);
+
+        #[qinvokable]
+        fn set_tray_enabled(self: Pin<&mut Backend>, enabled: bool);
 
         #[qinvokable]
         fn search_history(self: Pin<&mut Backend>, query: &QString);
@@ -184,6 +188,7 @@ pub struct BackendRust {
     history_disk_available: bool,
     save_history: bool,
     remember_key: bool,
+    minimize_to_tray: bool,
     busy: bool,
     current_id: QString,
     current_json: QString,
@@ -399,6 +404,7 @@ impl qobject::Backend {
             Event::Settings(s) => {
                 self.as_mut().set_save_history(s.save_history);
                 self.as_mut().set_usd_per_credit(s.usd_per_credit);
+                self.as_mut().set_minimize_to_tray(s.minimize_to_tray);
                 self.set_remember_key(s.remember_key);
             }
             Event::Credentials(c) => {
@@ -537,6 +543,12 @@ impl qobject::Backend {
     pub fn set_history_enabled(self: Pin<&mut Self>, enabled: bool) {
         if let Some(s) = self.service() {
             s.set_save_history(enabled);
+        }
+    }
+
+    pub fn set_tray_enabled(self: Pin<&mut Self>, enabled: bool) {
+        if let Some(s) = self.service() {
+            s.set_minimize_to_tray(enabled);
         }
     }
 

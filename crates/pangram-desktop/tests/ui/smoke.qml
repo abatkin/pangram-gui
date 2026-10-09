@@ -275,7 +275,36 @@ Item {
                 break
             case 54:
                 settingsDialog.close()
-                smoke.step = 6
+                backend.setTrayEnabled(true)
+                smoke.step = 55
+                break
+            // Tray: a tray host exists only on a live desktop, so offscreen this drives the window
+            // functions directly. Hiding the only window must not quit the application.
+            case 55:
+                if (backend.minimizeToTray) {
+                    smoke.log("tray available: " + trayIcon.available)
+                    if (trayIcon.available)
+                        window.close()
+                    else
+                        window.hideToTray()
+                    smoke.step = 56
+                }
+                break
+            case 56:
+                smoke.check(!window.visible, "window hides to the tray")
+                window.showFromTray()
+                smoke.step = 57
+                break
+            case 57:
+                smoke.check(window.visible && window.visibility === Window.Windowed, "window returns from the tray")
+                backend.setTrayEnabled(false)
+                smoke.step = 58
+                break
+            case 58:
+                if (!backend.minimizeToTray) {
+                    smoke.check(!window.trayActive, "tray setting turns off")
+                    smoke.step = 6
+                }
                 break
             case 6:
                 window.width = 820

@@ -11,6 +11,7 @@ const QML_FILES: &[&str] = &[
     "qml/ButtonRow.qml",
     "qml/RawDialog.qml",
     "qml/UsageWindow.qml",
+    "qml/TrayIcon.qml",
 ];
 
 /// Asks qmake for Qt's QML install directory, used at runtime to detect optional styles.
@@ -34,12 +35,15 @@ fn main() {
     for f in QML_FILES {
         println!("cargo:rerun-if-changed={f}");
     }
+    // Listed in resources.qrc.
+    println!("cargo:rerun-if-changed=../../data/net.batkin.pangram-desktop.svg");
 
     let builder =
         CxxQtBuilder::new_qml_module(QmlModule::new("net.batkin.pangram").qml_files(QML_FILES))
             .qt_module("Quick")
             .qt_module("QuickControls2")
             .qt_module("Widgets")
+            .qrc("resources.qrc")
             .files(["src/backend.rs"]);
     // SAFETY: only adds a warning flag; Qt 6.11 headers trip GCC 16's -Wsfinae-incomplete.
     let builder = unsafe {
